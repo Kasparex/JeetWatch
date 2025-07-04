@@ -2,21 +2,19 @@ const express = require("express");
 const mongoose = require("mongoose");
 const axios = require("axios");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 app.use(cors());
-
-const path = require("path");
-
-// Serve static files from the root directory
 app.use(express.static(path.join(__dirname)));
 
-// Default route for root
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Jeet_Watch.html"));
 });
 
+// ✅ PATCHED: properly escaped URI
 const MONGO_URI = "mongodb+srv://kasparexcom:MArcinek12%21@cluster0.jmxeiuv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
 const Wallet = mongoose.model("Wallet", new mongoose.Schema({
   wallet: String,
@@ -27,7 +25,6 @@ const Wallet = mongoose.model("Wallet", new mongoose.Schema({
   classification: String
 }));
 
-// Helper for jeet classification
 function classifyWallet(wallet) {
   const { received, sent, holdHours } = wallet;
   const ratio = sent / received;
@@ -39,21 +36,23 @@ function classifyWallet(wallet) {
   return "💎 Diamond Hand";
 }
 
-// API to fetch wallet activity from kas.fyi based on token ticker
 app.get("/api/jeet/:ticker", async (req, res) => {
   const ticker = req.params.ticker.toUpperCase();
 
   try {
-    // Step 1: Get token info to find contract
-    const tokensRes = await axios.get("https://kas.fyi/api/krc20");
+    // ✅ PATCHED: axios headers to bypass Cloudflare filters
+    const headers = {
+      "User-Agent": "Mozilla/5.0",
+      "Accept": "application/json"
+    };
+
+    const tokensRes = await axios.get("https://kas.fyi/api/krc20", { headers });
     const tokenInfo = tokensRes.data.find(t => t.ticker === ticker);
 
     if (!tokenInfo) return res.status(404).json({ error: "Token not found" });
 
     const tokenAddress = tokenInfo.address;
-
-    // Step 2: Get transfers for this token
-    const txRes = await axios.get(`https://kas.fyi/api/krc20/transfers/${tokenAddress}`);
+    const txRes = await axios.get(`https://kas.fyi/api/krc20/transfers/${tokenAddress}`, { headers });
     const transfers = txRes.data;
 
     const wallets = {};
@@ -98,7 +97,7 @@ app.get("/api/jeet/:ticker", async (req, res) => {
         wallet: w.wallet,
         token: ticker,
         received: w.received,
-        sent: sent,
+        sent,
         holdDuration,
         classification
       };
@@ -114,7 +113,7 @@ app.get("/api/jeet/:ticker", async (req, res) => {
 
     res.json(results);
   } catch (err) {
-    console.error("Error fetching data:", err.message);
+    console.error("❌ Error fetching Jeet data:", err.message);
     res.status(500).json({ error: "Failed to fetch Jeet data" });
   }
 });
