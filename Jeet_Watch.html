@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jeet Watch – Live Dashboard</title>
+  <style>
+    body {
+      font-family: Roboto, sans-serif;
+      background: white;
+      padding: 20px;
+      margin: 0;
+    }
+    h2 {
+      color: #0097b2;
+      margin-bottom: 10px;
+    }
+    select, input {
+      padding: 8px;
+      margin: 5px 10px 10px 0;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-family: Roboto, sans-serif;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background-color: #f9f9f9;
+    }
+    tr:hover {
+      background-color: #f0f8fa;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📉 Jeet Watch Leaderboard</h2>
+
+  <label for="tokenInput">Token Ticker:</label>
+  <input type="text" id="tokenInput" value="KREX" placeholder="e.g. KREX, SARAH, VECTOR">
+
+  <label for="searchWallet">Search Wallet:</label>
+  <input type="text" id="searchWallet" placeholder="kaspa:...">
+
+  <label for="filter">Filter:</label>
+  <select id="filter">
+    <option value="all">All</option>
+    <option value="🔴 Ultra Jeet">🔴 Ultra Jeet</option>
+    <option value="🟡 True Jeet">🟡 True Jeet</option>
+    <option value="⚪ Mild Jeet">⚪ Mild Jeet</option>
+    <option value="💎 Diamond Hand">💎 Diamond Hand</option>
+  </select>
+
+  <button onclick="loadJeetData()">🔄 Load</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Wallet</th>
+        <th>Received</th>
+        <th>Sent</th>
+        <th>Hold Duration</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="walletTableBody"></tbody>
+  </table>
+
+  <script>
+    const API_BASE = "http://localhost:4000/api/jeet"; // Replace with your deployed URL
+
+    async function loadJeetData() {
+      const token = document.getElementById("tokenInput").value.toUpperCase();
+      const filter = document.getElementById("filter").value;
+      const search = document.getElementById("searchWallet").value.toLowerCase();
+      const tableBody = document.getElementById("walletTableBody");
+      tableBody.innerHTML = "Loading...";
+
+      try {
+        const res = await fetch(`${API_BASE}/${token}`);
+        const data = await res.json();
+
+        tableBody.innerHTML = "";
+
+        const filtered = data.filter(entry => {
+          const matchFilter = (filter === "all" || entry.classification === filter);
+          const matchSearch = entry.wallet.toLowerCase().includes(search);
+          return matchFilter && matchSearch;
+        });
+
+        filtered.forEach(entry => {
+          const row = `<tr>
+            <td>${entry.wallet}</td>
+            <td>${entry.received.toLocaleString()}</td>
+            <td>${entry.sent.toLocaleString()}</td>
+            <td>${entry.holdDuration}</td>
+            <td>${entry.classification}</td>
+          </tr>`;
+          tableBody.innerHTML += row;
+        });
+
+        if (filtered.length === 0) {
+          tableBody.innerHTML = "<tr><td colspan='5'>No results found</td></tr>";
+        }
+
+      } catch (err) {
+        tableBody.innerHTML = `<tr><td colspan="5">Error loading data: ${err.message}</td></tr>`;
+      }
+    }
+
+    document.getElementById("searchWallet").addEventListener("input", loadJeetData);
+    document.getElementById("filter").addEventListener("change", loadJeetData);
+
+    // Auto load on page open
+    window.onload = loadJeetData;
+  </script>
+
+</body>
+</html>
