@@ -6,6 +6,16 @@ const cors = require("cors");
 const app = express();
 app.use(cors());
 
+const path = require("path");
+
+// Serve static files from the root directory
+app.use(express.static(path.join(__dirname)));
+
+// Default route for root
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "Jeet_Watch.html"));
+});
+
 const MONGO_URI=mongodb+srv://kasparexcom:MArcinek12%21@cluster0.jmxeiuv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
