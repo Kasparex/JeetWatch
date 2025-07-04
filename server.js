@@ -6,7 +6,7 @@ const cors = require("cors");
 const app = express();
 app.use(cors());
 
-const MONGO_URI = "mongodb+srv://kasparexcom:MArcinek12!@@cluster0.jmxeiuv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI=mongodb+srv://kasparexcom:MArcinek12%21@cluster0.jmxeiuv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
 const Wallet = mongoose.model("Wallet", new mongoose.Schema({
