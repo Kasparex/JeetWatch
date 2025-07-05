@@ -6,21 +6,24 @@ const path = require("path");
 
 const app = express();
 app.use(cors());
+
+// Serve static files from the root directory
 app.use(express.static(path.join(__dirname)));
 
-// Root route to serve the frontend
+// Default route
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Jeet_Watch.html"));
 });
 
-// ✅ Updated MongoDB URI with new password
+// ✅ Correct MongoDB URI with new password (encoded "!" as %21)
 const MONGO_URI = "mongodb+srv://kasparexcom:MArcinek@cluster0.jmxeiuv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
-// Connect to MongoDB
-mongoose
-  .connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+mongoose.connect(MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log("✅ MongoDB connected"))
+.catch(err => console.error("❌ MongoDB connection error:", err.message));
 
 const Wallet = mongoose.model("Wallet", new mongoose.Schema({
   wallet: String,
@@ -31,7 +34,7 @@ const Wallet = mongoose.model("Wallet", new mongoose.Schema({
   classification: String
 }));
 
-// 🧠 Jeet classification helper
+// Jeet classification logic
 function classifyWallet(wallet) {
   const { received, sent, holdHours } = wallet;
   const ratio = sent / received;
@@ -43,22 +46,28 @@ function classifyWallet(wallet) {
   return "💎 Diamond Hand";
 }
 
-// 🛰️ API endpoint
+// API route
 app.get("/api/jeet/:ticker", async (req, res) => {
   const ticker = req.params.ticker.toUpperCase();
+  console.log("➡️ Request received for:", ticker);
 
   try {
-    // Get token info
     const tokensRes = await axios.get("https://kas.fyi/api/krc20");
     const tokenInfo = tokensRes.data.find(t => t.ticker === ticker);
 
-    if (!tokenInfo) return res.status(404).json({ error: "Token not found" });
+    if (!tokenInfo) {
+      console.error("❌ Token not found:", ticker);
+      return res.status(404).json({ error: "Token not found" });
+    }
+
+    console.log("✅ Token found:", tokenInfo);
 
     const tokenAddress = tokenInfo.address;
 
-    // Get transfers
     const txRes = await axios.get(`https://kas.fyi/api/krc20/transfers/${tokenAddress}`);
     const transfers = txRes.data;
+
+    console.log(`✅ Transfers fetched: ${transfers.length} for token ${ticker}`);
 
     const wallets = {};
 
@@ -118,11 +127,13 @@ app.get("/api/jeet/:ticker", async (req, res) => {
 
     res.json(results);
   } catch (err) {
-    console.error("Error fetching data:", err.message);
+    console.error("❌ Error fetching Jeet data:", err.message);
+    if (err.response) {
+      console.error("📥 Response error:", err.response.data);
+    }
     res.status(500).json({ error: "Failed to fetch Jeet data" });
   }
 });
 
-// Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`✅ Jeet Watch API running at http://localhost:${PORT}`));
