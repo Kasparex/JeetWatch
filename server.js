@@ -6,21 +6,17 @@ const path = require("path");
 
 const app = express();
 app.use(cors());
-
 app.use(express.static(path.join(__dirname)));
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Jeet_Watch.html"));
 });
 
+// ✅ UPDATED MongoDB URI with new password
 const MONGO_URI = "mongodb+srv://kasparexcom:MArcinek@cluster0.jmxeiuv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log("✅ MongoDB connected"))
-.catch(err => console.error("❌ MongoDB connection error:", err.message));
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
 const Wallet = mongoose.model("Wallet", new mongoose.Schema({
   wallet: String,
@@ -44,30 +40,35 @@ function classifyWallet(wallet) {
 
 app.get("/api/jeet/:ticker", async (req, res) => {
   const ticker = req.params.ticker.toUpperCase();
-  console.log("➡️ Checking token:", ticker);
 
   try {
     const tokensRes = await axios.get("https://kas.fyi/api/krc20");
 
-    const tokenList = Array.isArray(tokensRes.data)
-      ? tokensRes.data
-      : tokensRes.data.tokens;
+    // 🔍 Smart parsing of possible structures
+    console.log("📦 Token API response keys:", Object.keys(tokensRes.data));
+    let tokenList = [];
 
-    if (!Array.isArray(tokenList)) {
-      console.error("❌ Unexpected token API response:", tokensRes.data);
+    if (Array.isArray(tokensRes.data)) {
+      tokenList = tokensRes.data;
+    } else if (Array.isArray(tokensRes.data.tokens)) {
+      tokenList = tokensRes.data.tokens;
+    } else if (Array.isArray(tokensRes.data.result)) {
+      tokenList = tokensRes.data.result;
+    } else if (typeof tokensRes.data === "object") {
+      const allValues = Object.values(tokensRes.data).flat();
+      tokenList = allValues.filter(x => x && typeof x === "object" && x.ticker);
+    }
+
+    if (!Array.isArray(tokenList) || !tokenList[0]?.ticker) {
+      console.error("❌ Unexpected token API structure:", JSON.stringify(tokensRes.data, null, 2));
       return res.status(500).json({ error: "Unexpected token list format" });
     }
 
     const tokenInfo = tokenList.find(t => t.ticker === ticker);
+    if (!tokenInfo) return res.status(404).json({ error: "Token not found" });
 
-    if (!tokenInfo) {
-      console.error("❌ Token not found:", ticker);
-      return res.status(404).json({ error: "Token not found" });
-    }
-
-    console.log("✅ Token address:", tokenInfo.address);
-
-    const txRes = await axios.get(`https://kas.fyi/api/krc20/transfers/${tokenInfo.address}`);
+    const tokenAddress = tokenInfo.address;
+    const txRes = await axios.get(`https://kas.fyi/api/krc20/transfers/${tokenAddress}`);
     const transfers = txRes.data;
 
     const wallets = {};
@@ -97,11 +98,13 @@ app.get("/api/jeet/:ticker", async (req, res) => {
       const holdHours = w.sent_time
         ? (w.sent_time - w.received_time) / 1000 / 3600
         : null;
+
       const classification = classifyWallet({
         received: w.received,
         sent,
         holdHours: holdHours || 9999
       });
+
       const holdDuration = holdHours
         ? holdHours < 1
           ? `${Math.round(holdHours * 60)} mins`
@@ -128,11 +131,12 @@ app.get("/api/jeet/:ticker", async (req, res) => {
 
     res.json(results);
   } catch (err) {
-    console.error("❌ Error fetching Jeet data:", err.message);
-    if (err.response?.data) console.error("📥 API Response Error:", err.response.data);
+    console.error("Error fetching data:", err.message);
     res.status(500).json({ error: "Failed to fetch Jeet data" });
   }
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`✅ Jeet Watch API running at http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✅ Jeet Watch API running at http://localhost:${PORT}`);
+});
