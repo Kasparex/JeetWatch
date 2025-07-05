@@ -12,7 +12,6 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Jeet_Watch.html"));
 });
 
-// ✅ UPDATED MongoDB URI with new password
 const MONGO_URI = "mongodb+srv://kasparexcom:MArcinek@cluster0.jmxeiuv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB Connected"))
@@ -42,10 +41,15 @@ app.get("/api/jeet/:ticker", async (req, res) => {
   const ticker = req.params.ticker.toUpperCase();
 
   try {
-    const tokensRes = await axios.get("https://kas.fyi/api/krc20");
+    const tokensRes = await axios.get("https://kas.fyi/api/krc20", {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Jeet Watch Bot)",
+        "Accept": "application/json"
+      }
+    });
 
-    // 🔍 Smart parsing of possible structures
     console.log("📦 Token API response keys:", Object.keys(tokensRes.data));
+
     let tokenList = [];
 
     if (Array.isArray(tokensRes.data)) {
